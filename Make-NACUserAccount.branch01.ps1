@@ -40,7 +40,25 @@ Set user manager as OneDrive site reader/contributor/something.
 
 #>
 
+
+<#
+Test Errors
+Cannot find object with identity .Template line 87
+
+Cannot validate argument on parameter Identity as it is a null value Line 88
+
+The name provided is not a properly formed account name Line 92
+
+02/22/19 @ 1320
+
+Still getting stuck on checking for the user following the sync. Everything appears to operate before that step. 
+
+02/22/19 @ 2015
+#>
+
 # Set parameters.
+
+<#
 param (
   [Parameter(Mandatory=$True)]
   [Alias('First')]
@@ -65,22 +83,26 @@ param (
   [Alias('JobTitle')]
   [string]$Description
   )
-
+  #>
 # I Set the email address outside the function simply because it will have to be passed between multiple functions
-$global:UserEmail = $FirstName + "." + $LastName + "@nacgroup.com"
+
 
 <#due to using functions, variables will get passed both into and out of functions.#>
 
-function Create-LocalUser (
-[string]$FirstName,
-[string]$LastName,
-[int]$FourDigits,
-[string]$Division,
-[string]$Manager,
-[string]$EmployeeNumber,
-[string]$MobilePhone,
-[string]$Description,
-$UserEmail) {
+function Create-LocalUser ([string]$UserEmail) {
+
+#Retrieve Input from the User
+### Must figure out a more efficient way to ask the questions and get the answers if possible. This is just kind of ridiculous. Maybe a "do you want to enter optional info if statement ###
+
+$global:FirstName = Read-Host "Enter the First Name"
+$global:LastName = Read-Host "Enter the Last Name"
+$global:FourDigits = Read-Host "Last Four of the User"
+$global:Division = Read-Host "Enter the Department of the User(not required. Can leave blank)"
+$global:Manager = Read-Host "Who is the User's Manager(not required. Can leave blank)"
+$global:EmployeeNumber = Read-Host "What is the employee number of the user(not required. Can leave blank)"
+$global:MobilePhone = Read-Host "What is the mobile phone number(not required. Can leave blank)"
+$global:Description = Read-Host "Enter the Job Title of the user (not required. Can leave blank)"
+$global:UserEmail = "$FirstName.$LastName@nacgroup.com"
 
 # Combine the variables as needed and add info where needed to complete the formatting (edited for clarity)
 $UserName = "$FirstName.$LastName"
@@ -115,7 +137,7 @@ Write-Host "Pushing information to Microsoft Online..."
 # Sync the newly created user to Office 365 and Azure AD
 start-adsyncsynccycle -policytype delta
 
-start-sleep -Seconds 30
+start-sleep -Seconds 120
 }
 
 <#
@@ -128,48 +150,58 @@ start-sleep -Seconds 30
 #>
 
 function Check-User {
+
+#Set the variable to null
+$LicensingInput = $Null
+
+$LicensingInput = Read-Host "Do you want the user to be licensed? (y/n)"
 # This funtion will check if you want to have the user be licensed and then license the user if need be
 # Check to see if this is the first run of the function by checking for a value for in $LicensingInput 
 if ($LicensingInput -ne $Null){
-Write-Host "Do you want the user to be licensed? (y/n)"
-$LicensingInput = Read-Host
-}
 
 # Run the check of if the user is going to be licensed.
-if ($LicensingInput -eq "y") {
+    if ($LicensingInput -eq "y") {
     #If the answer was y then proceed with licensing
-    if ((Get-MsolUser -UserPrincipalName $UserEmail) -ne $Null)
-        {
-        # User first needs to be assigned a region, then a license.
-        $AzureUserName = Get-AzureADUser -SearchString $UserName
-        Set-AzureADUser -ObjectId $AzureUserName.ObjectId -UsageLocation US
-        $LicenseSku = Get-AzureADSubscribedSku | Where-Object {$_.SkuPartNumber -eq 'O365_BUSINESS_PREMIUM'}
-        $License = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicense
-        $License.SkuId = $LicenseSku.SkuId
-        $AssignedLicenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
-        $AssignedLicenses.AddLicenses = $License
-        Set-AzureADUserLicense -ObjectId $AzureUserName.ObjectId -AssignedLicenses $AssignedLicenses
-        } 
-            else {
-            start-sleep -Seconds 300
-            Check-User
-            }
+        if ((Get-MsolUser -UserPrincipalName $UserEmail) -ne $Null)
+            {
+            Write-Host "Starting Loop"
+            # User first needs to be assigned a region, then a license.
+            #$AzureUserName = Get-AzureADUser -SearchString $UserName | select ObjectID
+            #[string]$AzureUserName = $AzureUserName.ObjectID
+            Set-AzureADUser -ObjectId "$FirstName.$LastName@nacgroup.com" -UsageLocation US
+            $LicenseSku = Get-AzureADSubscribedSku | Where-Object {$_.SkuPartNumber -eq 'O365_BUSINESS_PREMIUM'}
+            $License = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicense
+            $License.SkuId = $LicenseSku.SkuId
+            $AssignedLicenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
+            $AssignedLicenses.AddLicenses = $License
+            Set-AzureADUserLicense -ObjectId "$FirstName.$LastName@nacgroup.com" -AssignedLicenses $AssignedLicenses
+            Write-Host "License assigned."
+            } 
+                else {
+                start-sleep -Seconds 300
+                Write-Host "Start-Sleep command"
+                }
 
-} 
-#if the answer was no, exit the function without any further steps
-    elseif ($LicensingInput -eq "n") 
-    {
-    }
-        # If the response was not y or n, tell the user to enter y or n and then begin the loop after the intital question again
-        else 
+            } 
+        #if the answer was no, exit the function without any further steps
+        elseif ($LicensingInput -eq "n") 
         {
-        Write-Host 'Invalid Response. Please enter "y" or "n"'
-        Check-User
+        return
         }
-# Exit Function
+            # If the response was not y or n, tell the user to enter y or n and then begin the loop after the intital question again
+            else 
+            {
+            Write-Host ' Invalid Response. Please enter "y" or "n" '
+            }
+    # Exit Function
+
+    }
+start-sleep -Seconds 120
 }
 
 function Connect-Office365 {
+
+Write-Host "Connect to 365. You'll provide your credentials twice"
 
 # Pull credentials before moving to Office 365.
 $MsolCredential = Get-Credential
@@ -180,13 +212,16 @@ Connect-MsolService -Credential $MsolCredential
 Connect-AzureAD -Credential $MsolCredential
 Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $MsolCredential
 
-$Session = New-PsSession -configurationname Microsoft.Exchange -Connectionuri https://ps.outlook.com/powershell-liveid?PSVersion=4.0/ -credential $Creds -Authentication Basic -AllowRedirection
+$Session = New-PsSession -configurationname Microsoft.Exchange -Connectionuri https://ps.outlook.com/powershell-liveid?PSVersion=4.0/ -credential $MsolCredential -Authentication Basic -AllowRedirection
 Import-PSSession $Session
+
+Write-Host "Connected..."
 
 }
 
 function AddTo-Sharepoint {
-Add-SPOUser -Site https://nacgroup.sharepoint.com -LoginName $UserName -Group "Team Site Members"
+Start-Sleep -Seconds 300
+Add-SPOUser -Site https://nacgroup.sharepoint.com -LoginName "$FirstName.$LastName@nacgroup.com" -Group "Team Site Members"
 }
 
 function AddTo-Groups ([string]$Division){
