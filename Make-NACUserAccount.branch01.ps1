@@ -97,7 +97,7 @@ function Create-LocalUser ([string]$UserEmail) {
 $global:FirstName = Read-Host "Enter the First Name"
 $global:LastName = Read-Host "Enter the Last Name"
 $global:FourDigits = Read-Host "Last Four of the User"
-$global:Division = Read-Host "Enter the Department of the User(not required. Can leave blank)"
+$global:Division = Read-Host "Enter the Department of the User(Required!)"
 $global:Manager = Read-Host "Who is the User's Manager(not required. Can leave blank)"
 $global:EmployeeNumber = Read-Host "What is the employee number of the user(not required. Can leave blank)"
 $global:MobilePhone = Read-Host "What is the mobile phone number(not required. Can leave blank)"
@@ -111,6 +111,7 @@ $ManagerCN = Get-ADUser -Identity $UserTemplate -Properties Manager
 $ProfilePath = ($UserTemplate.DistinguishedName -split ",",2)[1]
 
 # Initial user account creation.
+Write-Host "Creating User and setting information."
 New-ADUser -SamAccountName $UserName -Name "$FirstName $LastName"
 
 # Set user properties: Description, DisplayName, EmailAddress, EmployeeNumber, GivenName, Manager, MobilePhone, Surname, UserPrincipalName.
@@ -126,9 +127,11 @@ Set-ADUser -Identity $UserName -UserPrincipalName "$FirstName.$LastName@nacgroup
 Get-ADUser -Identity $UserName | Move-ADObject -TargetPath $ProfilePath
 
 # Set proxy address(es).
+Write-Host "Setting Proxy Addresses"
 Get-ADUser -Identity $UserName | Set-ADUser -Add @{ProxyAddresses="SMTP:$UserEmail"}
 
 # Reset user password and enable account.
+Write-Host "Setting User Password"
 Set-ADAccountPassword -Identity $UserName -Reset
 Set-ADUser -Identity $UserName -Enabled $True
 

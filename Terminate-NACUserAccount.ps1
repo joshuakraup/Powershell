@@ -162,11 +162,9 @@ Function Send-EmailMessage () {
 }
 #>
 
+#$Global:Password
 
 
-$Global:Password = $Null
-$Global:Username = $Null
-$Global:UPN = $Null
 
 #Rebuilt the Generate Password Function to just fix a couple issues. 
 #Function to Connect to O365
@@ -175,7 +173,7 @@ function Connect-Office365 {
 Write-Host "Connect to 365. You'll provide your credentials twice"
 
 # Pull credentials before moving to Office 365.
-$MsolCredential = Get-Credential
+$Global:MsolCredential = Get-Credential
 
 #Connect to cloud services
 # Sourced from https://docs.microsoft.com/en-us/powershell/azure/active-directory/enabling-licenses-sample?view=azureadps-2.0 on 11 Jan 2019.
@@ -208,9 +206,9 @@ For ($loop = 1; $loop -le $length; $loop++){
 Function Get-Username(){
 
 Write-Host "Welcome to the NAC User Removal Script. We only need a little info to start the process."
-$Username = Read-Host "Please Enter the Username of the user without the @nacgroup.com part"
+$Global:Username = Read-Host "Please Enter the Username of the user without the @nacgroup.com part"
 
-$UPN = "$Username + '@nacgroup.com'"
+$Global:UPN = $Username + "@nacgroup.com"
 
 }
 
@@ -225,11 +223,11 @@ The excel spreadsheet must include
     Date the Deletion was requested
     Date the deletion will take full effect
 #>
-[string]$Manager = Get-ADUser -identity $username | select Manager
-Set-ADAccountPassword -Identity $Username -Reset
+[string]$Manager = Get-ADUser -identity $Username | select Manager
+Set-ADAccountPassword -Identity $Username -NewPassword (ConvertTo-SecureString -AsPlainText $TempPass -Force) -Reset 
 
-$smtpCred = (Get-Credential)
-$ToAddress = "jlunsford@nacgroup.com, $Manager"
+$smtpCred = $MsolCredential
+$ToAddress = "jlunsford@nacgroup.com"
 $FromAddress = "nexus-admin@nacgroup.com"
 $SmtpServer = "smtp.office365.com"
 $SmtpPort = "587"
@@ -250,18 +248,22 @@ Send-MailMessage @mailparam -UseSsl
 }
 
 Function Disable-MailLogon {
-
+Write-Host "Test passing variable for UPN" + $UPN
 #disable the logon
-
-set-msoluser -ObjectId $UPN -BlockCredential $true
+#$ObjectID = get-msoluser -UserPrincipalName $UPN | select ObjectID##This may not be necessary because the scope was the problem.
+set-msoluser -UserPrincipalName $UPN -BlockCredential $true
 
 }
+
+
+
 
 function ObtainAndRemove-Groups {
 
 #set the type of groups to be searched.
 $GroupTypes = @("GroupMailbox","MailUniversalDistributionGroup","MailUniversalSecurityGroup")
-
+Import-Module Microsoft.Online.SharePoint.PowerShell -DisableNameChecking
+$session = Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -credential $MsolCredential
 #get a list of groups the user is in.
 $Groups = Invoke-Command -Session $session -ScriptBlock { Get-Recipient -Filter "Members -eq '$($using:UPN)'" -RecipientTypeDetails $Using:GroupTypes | Select-Object DisplayName,ExternalDirectoryObjectId,RecipientTypeDetails } -ErrorAction SilentlyContinue -HideComputerName
 
@@ -274,9 +276,12 @@ forEach($Group in $Groups) {
        #Provide a notification each removal confirming that the user was removed from the group
        Write-Verbose "$UPN was removed."
        }
-
+<#This is going to fail because the user needs to be removed from AAD first. Unfortunately, that would mean a hard deletion in 
+#O365 Admin Center. For now, I'm going to knock this part of the script out into a script block and extricate it from being called.
 #Remove the Sharepoint Access
 Remove-SPOUserProfile -LoginName $UPN
+#>
+
 
 }
 
@@ -286,30 +291,51 @@ function Hold-Mailbox {
 
 $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $MsolCredential -Authentication Basic -AllowRedirection
 
-New-MailboxSearch -Name "$UPN" + "Archive" -SourceMailboxes $upn -InPlaceHoldEnabled $true
+New-MailboxSearch -Name "$UPN Archive" -SourceMailboxes $UPN -InPlaceHoldEnabled $true
 Write-Host "The user $upn has been placed on an In-Place hold. Please allow up to 30 minutes for the hold to complete and then you may export it manually" `
 "In order to accomplish the export refer to: https://docs.microsoft.com/en-us/exchange/policy-and-compliance/ediscovery/export-results-to-pst?view=exchserver-2019"
 
 #as of yet i don't have a good way to capture their entire onedrive. The cmdlets for sharepoint are lacking. Either way I can't export it. However by default the manager of the user get's access following deletion of the user.
-
-
-
-
-
-
-
 }
 
 
 
+if (get-module -listavailable -name PowershellGet,PackageManagement,AzureAD,Microsoft.SharePointOnline.CSOM){
 Connect-Office365
-
-Get-Username
 
 Generate-Password
 
+Get-Username
+
+Set-UserPassAndEmailToManager
+
+Disable-MailLogon
+
+ObtainAndRemove-Groups
+
+Hold-Mailbox
+}
+else {
+Write-Host "Needed modules do not exist on the machine. Installing now"
+import-module -Name PowershellGet
+import-module -Name AzureAD
+install-package -Name Microsoft.SharePointOnline.CSOM
+
+Connect-Office365
+
+Generate-Password
+
+Get-Username
+
+Set-UserPassAndEmailToManager
+
+Disable-MailLogon
+
+ObtainAndRemove-Groups
+
 Hold-Mailbox
 
+}
 
 <#
 # Reset user password to random value. First create a random password.
@@ -395,11 +421,6 @@ $usrremwrksht.name = 'User Removal History'
 
 
 #>
-
-
-out-excel
-
-
 
 <# 
 Could be used for the capturing of the onedrive site
