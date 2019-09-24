@@ -44,7 +44,7 @@ Set-ADUser -Identity $UserName -GivenName $FirstName
 Set-ADUser -Identity $UserName -Manager $ManagerCN
 Set-ADUser -Identity $UserName -Surname $LastName
 Set-ADUser -Identity $UserName -UserPrincipalName "$FirstName.$LastName@nacgroup.com"
-Set-ADUser -Identity $UserName -Country "1"
+Set-ADUser -Identity $UserName -EmployeeID "1"
 
 # Move to correct OU.
 Get-ADUser -Identity $UserName | Move-ADObject -TargetPath $ProfilePath
@@ -71,16 +71,14 @@ function Connect-Office365 {
 Write-Host "Connect to 365. You'll provide your credentials twice"
 
 # Pull credentials before moving to Office 365.
-$TenantUname = “SVC_SCRIPTS@nacgroup.com”
-$TenantPass = cat “C:\Scripts\Exchange_Online\Password.txt” | ConvertTo-SecureString -AsPlainText -Force
-$TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
-$msoExchangeURL = “https://ps.outlook.com/powershell/”                                              
+$TenantCredentials = Get-Credential
+$msoExchangeURL = “https://outlook.office365.com/powershell-liveid/”                                              
 
 #Connect to cloud services
 # Sourced from https://docs.microsoft.com/en-us/powershell/azure/active-directory/enabling-licenses-sample?view=azureadps-2.0 on 11 Jan 2019.
 Connect-MsolService -Credential $TenantCredentials
-Connect-AzureAD -Credential $TenantCredentials
-Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $TenantCredentials
+
+
 
 $session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
 Import-PSSession $session
@@ -89,29 +87,14 @@ Write-Host "Connected..."
 
 }
 
-function AddUserToGoCanvasEnterpriseApplication{
-# Assign the values to the variables
-$app_name = "GoCanvas-SSO"
-$app_role_name = "User"
 
-# Get the user to assign, and the service principal for the app to assign to
-$user = Get-AzureADUser -ObjectId "$useremail"
-$sp = Get-AzureADServicePrincipal -Filter "displayName eq '$app_name'"
-$appRole = $sp.AppRoles | Where-Object { $_.DisplayName -eq $app_role_name }
-
-# Assign the user to the app role
-New-AzureADUserAppRoleAssignment -ObjectId $user.ObjectId -PrincipalId $user.ObjectId -ResourceId $sp.ObjectId -Id $appRole.Id
-
-}
 
 
 Connect-Office365
 
 Create-LocalUser
 
-Check-User
 
-AddUserToGoCanvasEnterpriseApplication
 
 
 

@@ -12,6 +12,7 @@ Author: Joshua Raup
 
 #>
 
+import-module ActiveDirectory
 function Connect-Office365 {
 
 Write-Host "Connect to 365. You'll provide your credentials twice"
@@ -29,7 +30,7 @@ Connect-AzureAD -Credential $TenantCredentials
 Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $TenantCredentials
 
 $session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
-Import-PSSession $session
+Import-PSSession $session -ErrorAction SilentlyContinue
 
 Write-Host "Connected..."
 
@@ -37,40 +38,61 @@ Write-Host "Connected..."
 
 ## Heavy editing and rewrite potentially needed to accomplish this section. 
 function Check-User {
-            # User first needs to be assigned a region, then a license.
-            Set-AzureADUser -ObjectId "$FirstName.$LastName@nacgroup.com" -UsageLocation US
-            $LicenseSku = Get-AzureADSubscribedSku | Where-Object {$_.SkuPartNumber -eq 'O365_BUSINESS_PREMIUM'}
-            $License = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicense
-            $License.SkuId = $LicenseSku.SkuId
-            $AssignedLicenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
-            $AssignedLicenses.AddLicenses = $License
-            Set-AzureADUserLicense -ObjectId "$FirstName.$LastName@nacgroup.com" -AssignedLicenses $AssignedLicenses
-
-            start-sleep -Seconds 120
+                # User first needs to be assigned a region, then a license.
+                
+                Set-AzureADUser -ObjectId $User.UserPrincipalName -UsageLocation US
+                $LicenseSku = Get-AzureADSubscribedSku | Where-Object {$_.SkuPartNumber -eq 'O365_BUSINESS_PREMIUM'}
+                $License = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicense
+                $License.SkuId = $LicenseSku.SkuId
+                $AssignedLicenses = New-Object -TypeName Microsoft.Open.AzureAD.Model.AssignedLicenses
+                $AssignedLicenses.AddLicenses = $License
+                Set-AzureADUserLicense -ObjectId $user.UserPrincipalName -AssignedLicenses $AssignedLicenses
+                
+           
 }
 
 function AddTo-Sharepoint {
-Start-Sleep -Seconds 300
-Add-SPOUser -Site https://nacgroup.sharepoint.com -LoginName "$FirstName.$LastName@nacgroup.com" -Group "Team Site Members"
+  
+    Add-SPOUser -Site https://nacgroup.sharepoint.com -LoginName $user.UserPrincipalName -Group "Team Site Members"
+    
 }
 
-function AddTo-Groups ([string]$Division){
+function AddTo-Groups{
 #import the Division from the parameters
 #Pull list of the groups, extract the displayname property and store that inside a variable
+$TenantUname = “SVC_SCRIPTS@nacgroup.com”
+$TenantPass = cat “C:\Scripts\Exchange_Online\Password.txt” | ConvertTo-SecureString -AsPlainText -Force
+$TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
+$msoExchangeURL = “https://outlook.office365.com/powershell-liveid/”  
+$session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
+Import-PSSession $session
 
-$365Group = get-unifiedgroup | where {$_.DisplayName -match $Division} | select DisplayName
+$365Group = get-unifiedgroup | where {$_.DisplayName -match $user.Department} | select DisplayName
 
 #While the variable itself is a PSCustomObject typ the property inside is a system.string type so we dont need to convert
 
-Add-UnifiedGroupLinks -Identity $365Group.DisplayName -Links $UserEmail -LinkType Members
-
+Add-UnifiedGroupLinks -Identity $365Group.DisplayName -Links $user.UserPrincipalName -LinkType Members
 
 }
 
+function AddUserToGoCanvasEnterpriseApplication{
+# Assign the values to the variables
+$app_name = "GoCanvas-SSO"
+$app_role_name = "User"
 
+# Get the user to assign, and the service principal for the app to assign to
+$azuser = Get-AzureADUser -ObjectId $user.UserPrincipalName
+$sp = Get-AzureADServicePrincipal -Filter "displayName eq '$app_name'"
+$appRole = $sp.AppRoles | Where-Object { $_.DisplayName -eq $app_role_name }
+
+# Assign the user to the app role
+New-AzureADUserAppRoleAssignment -ObjectId $azuser.ObjectId -PrincipalId $azuser.ObjectId -ResourceId $sp.ObjectId -Id $appRole.Id
+
+set-aduser -EmployeeID "2"
+}
 #start the detection and gather users for changes
 #detect and record users whose country value is set as 1
-$changeUsers = get-aduser | ? {$_.Country -eq "1"}
+$changeUsers = get-aduser -filter {EmployeeID -eq '1'} -Properties *
 
 #loop through the functions for each user that contains the country value of '1'
 foreach($user in $changeUsers){
@@ -83,4 +105,6 @@ Check-User
 AddTo-Sharepoint
 #Add user to Groups
 AddTo-Groups
+#add user to GoCanvas
+AddUserToGoCanvasEnterpriseApplication
 }

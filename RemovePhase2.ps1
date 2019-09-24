@@ -25,7 +25,7 @@ Connect-AzureAD -Credential $TenantCredentials
 Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $TenantCredentials
 
 $session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
-Import-PSSession $session
+Import-PSSession $session -ErrorAction SilentlyContinue
 
 Write-Host "Connected..."
 
@@ -34,31 +34,27 @@ Write-Host "Connected..."
 
 function Hold-Mailbox { 
 
-#Connect to the Security and Compliance Center
+$RemovalOfUsers = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "4"}
 
-$Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $MsolCredential -Authentication Basic -AllowRedirection
+    foreach($user in $RemovalOfUsers){
 
-New-MailboxSearch -Name "$UPN Archive" -SourceMailboxes $UPN -InPlaceHoldEnabled $true
-Write-Host "The user $upn has been placed on an In-Place hold. Please allow up to 30 minutes for the hold to complete and then you may export it manually" `
-"In order to accomplish the export refer to: https://docs.microsoft.com/en-us/exchange/policy-and-compliance/ediscovery/export-results-to-pst?view=exchserver-2019"
+    $UPN = $user.userprincipalname
+    #Connect to the Security and Compliance Center
 
-#as of yet i don't have a good way to capture their entire onedrive. The cmdlets for sharepoint are lacking. Either way I can't export it. However by default the manager of the user get's access following deletion of the user.
+    $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $MsolCredential -Authentication Basic -AllowRedirection
+
+    New-MailboxSearch -Name "$user.userprincipalname Archive" -SourceMailboxes $user.userprincipalname -InPlaceHoldEnabled $true
+    set-aduser $user.userprincipalname -EmployeeID "5"
+    #as of yet i don't have a good way to capture their entire onedrive. The cmdlets for sharepoint are lacking. Either way I can't export it. However by default the manager of the user get's access following deletion of the user.
+    }
 }
 
-if (get-module -listavailable -name PowershellGet,PackageManagement,AzureAD,Microsoft.SharePointOnline.CSOM){
-Connect-Office365
-
-Hold-Mailbox
-
-}
-else {
-Write-Host "Needed modules do not exist on the machine. Installing now"
 import-module -Name PowershellGet
 import-module -Name AzureAD
-install-package -Name Microsoft.SharePointOnline.CSOM
 
 Connect-Office365
 
 Hold-Mailbox
 
-}
+
+

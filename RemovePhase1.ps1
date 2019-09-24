@@ -15,20 +15,7 @@ Connect-AzureAD -Credential $TenantCredentials
 Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $TenantCredentials
 
 $session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
-Import-PSSession $session
-
-Write-Host "Connected..."
-
-}
-
-
-Function Get-Username(){
-
-Write-Host "Welcome to the NAC User Removal Script. We only need a little info to start the process."
-$Global:Username = Read-Host "Please Enter the Username of the user without the @nacgroup.com part"
-
-$Global:UPN = $Username + "@nacgroup.com"
-
+Import-PSSession $session -ErrorAction SilentlyContinue
 }
 
 
@@ -47,10 +34,9 @@ For ($loop = 1; $loop -le $length; $loop++){
 }
 
 Function Disable-MailLogon {
-Write-Host "Test passing variable for UPN" + $UPN
 #disable the logon
 #$ObjectID = get-msoluser -UserPrincipalName $UPN | select ObjectID##This may not be necessary because the scope was the problem.
-set-msoluser -UserPrincipalName $UPN -BlockCredential $true
+set-msoluser -UserPrincipalName $user.userprincipalname -BlockCredential $true
 
 }
 
@@ -65,32 +51,20 @@ The excel spreadsheet must include
     Date the Deletion was requested
     Date the deletion will take full effect
 #>
-[string]$Manager = Get-ADUser -identity $Username | select Manager
-Set-ADAccountPassword -Identity $Username -NewPassword (ConvertTo-SecureString -AsPlainText $TempPass -Force) -Reset 
+#[string]$Manager = Get-ADUser -identity $Username | select Manager
+Set-ADAccountPassword -Identity $User.DistinguishedName -NewPassword (ConvertTo-SecureString -AsPlainText $TempPass -Force) -Reset 
 }
 
 Function Set-UserProperty {
 
-set-aduser $UPN -replace @{CustomAttribute1 ="0001"}
+Set-ADUser -Identity $user.distinguishedname -EmployeeID "4"
 
 }
 
 
-if (get-module -listavailable -name PowershellGet,PackageManagement,AzureAD,Microsoft.SharePointOnline.CSOM){
-Connect-Office365
+$UserstobeRemoved = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "3"}
 
-Generate-Password
-
-Disable-MailLogon
-
-Set-UserPass
-}
-else {
-Write-Host "Needed modules do not exist on the machine. Installing now"
-import-module -Name PowershellGet
-import-module -Name AzureAD
-install-package -Name Microsoft.SharePointOnline.CSOM
-
+foreach($user in $UserstobeRemoved){
 Connect-Office365
 
 Generate-Password
@@ -99,5 +73,5 @@ Disable-MailLogon
 
 Set-UserPass
 
-
+Set-UserProperty
 }
