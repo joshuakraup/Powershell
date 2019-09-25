@@ -88,13 +88,13 @@ $appRole = $sp.AppRoles | Where-Object { $_.DisplayName -eq $app_role_name }
 # Assign the user to the app role
 New-AzureADUserAppRoleAssignment -ObjectId $azuser.ObjectId -PrincipalId $azuser.ObjectId -ResourceId $sp.ObjectId -Id $appRole.Id
 
-set-aduser -EmployeeID "2"
+set-aduser $user -EmployeeID "2"
 }
 #start the detection and gather users for changes
 #detect and record users whose country value is set as 1
 $changeUsers = get-aduser -filter {EmployeeID -eq '1'} -Properties *
 
-#loop through the functions for each user that contains the country value of '1'
+#loop through the functions for each user that contains the employeeID of '1'
 foreach($user in $changeUsers){
 
 #connect to the o365 tenant using the service user
