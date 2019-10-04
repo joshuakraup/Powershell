@@ -65,16 +65,24 @@ function AddTo-UserSelectionGroups {
             
         }
         2 {
-        add-adgroupmember -identity LAN-Access -members $user.userprincipalname
+            add-adgroupmember -identity LAN-Access -members $user.userprincipalname
         }
         4{
-        $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
-        Add-AzureADGroupMember -ObjectId 125c9ff8-67df-43b4-82a4-be04dde1aac7 -RefObjectId $UserObjectID
+            $app_name = "GoCanvas-SSO"
+            $app_role_name = "User"
+            $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
+            $sp = Get-AzureADServicePrincipal -Filter "displayName eq '$app_name'"
+            $appRole = $sp.AppRoles | Where-Object { $_.DisplayName -eq $app_role_name }
+            New-AzureADUserAppRoleAssignment -ObjectId $user.ObjectId -PrincipalId $user.ObjectId -ResourceId $sp.ObjectId -Id $appRole.Id
         }
         5 {
-        add-adgroupmember -identity LAN-Access -members $user.userprincipalname
-        $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
-        Add-AzureADGroupMember -ObjectId 125c9ff8-67df-43b4-82a4-be04dde1aac7 -RefObjectId $UserObjectID
+            add-adgroupmember -identity LAN-Access -members $user.userprincipalname
+            $app_name = "GoCanvas-SSO"
+            $app_role_name = "User"
+            $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
+            $sp = Get-AzureADServicePrincipal -Filter "displayName eq '$app_name'"
+            $appRole = $sp.AppRoles | Where-Object { $_.DisplayName -eq $app_role_name }
+            New-AzureADUserAppRoleAssignment -ObjectId $user.ObjectId -PrincipalId $user.ObjectId -ResourceId $sp.ObjectId -Id $appRole.Id
         }
     }
 
