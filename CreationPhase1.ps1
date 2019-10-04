@@ -50,7 +50,7 @@ Set-ADUser -Identity $UserName -UserPrincipalName "$FirstName.$LastName@nacgroup
         {
             ($LANAccessGrp -eq 'y' -or 'Y') {$LANAccessSetting = 1}
             ($LANAccessGrp -eq 'n' -or 'N') {$LANAccessSetting = 0}
-            ($CanvasGrp -eq 'y' -or 'Y') {$CanvasSetting = 1}
+            ($CanvasGrp -eq 'y' -or 'Y') {$CanvasSetting = 3}
             ($CanvasGrp -eq 'n' -or 'N') {$CanvasSetting = 0}
         }
 

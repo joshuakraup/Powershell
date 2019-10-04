@@ -57,6 +57,29 @@ function AddTo-Sharepoint {
     
 }
 
+function AddTo-UserSelectionGroups {
+
+    switch ($user.EmployeeID)
+    {
+        1 {
+            
+        }
+        2 {
+        add-adgroupmember -identity LAN-Access -members $user.userprincipalname
+        }
+        4{
+        $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
+        Add-AzureADGroupMember -ObjectId 125c9ff8-67df-43b4-82a4-be04dde1aac7 -RefObjectId $UserObjectID
+        }
+        5 {
+        add-adgroupmember -identity LAN-Access -members $user.userprincipalname
+        $UserObjectID = get-azureaduser -SearchString "$user.userprincipalname"
+        Add-AzureADGroupMember -ObjectId 125c9ff8-67df-43b4-82a4-be04dde1aac7 -RefObjectId $UserObjectID
+        }
+    }
+
+}
+
 function AddTo-Groups{
 #import the Division from the parameters
 #Pull list of the groups, extract the displayname property and store that inside a variable
@@ -92,11 +115,10 @@ set-aduser $user -EmployeeID "2"
 }
 #start the detection and gather users for changes
 #detect and record users whose country value is set as 1
-$changeUsers = get-aduser -filter {EmployeeID -eq '1'} -Properties *
+$changeUsers = get-aduser -filter {(EmployeeID -eq '1') -or (EmployeeID -eq '2') -or (EmployeeID -eq '3')} -Properties *
 
 #loop through the functions for each user that contains the employeeID of '1'
 foreach($user in $changeUsers){
-
 #connect to the o365 tenant using the service user
 Connect-Office365
 #check the user 
@@ -105,6 +127,8 @@ Check-User
 AddTo-Sharepoint
 #Add user to Groups
 AddTo-Groups
+#Add user to user selection groups (ID has a specifc value.)
+AddTo-UserSelectionGroups
 #add user to GoCanvas
 AddUserToGoCanvasEnterpriseApplication
 }
