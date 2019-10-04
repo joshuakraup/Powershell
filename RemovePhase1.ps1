@@ -35,7 +35,7 @@ For ($loop = 1; $loop -le $length; $loop++){
 
 Function Disable-MailLogon {
 #disable the logon
-#$ObjectID = get-msoluser -UserPrincipalName $UPN | select ObjectID##This may not be necessary because the scope was the problem.
+#$ObjectID = get-msoluser -UserPrincipalName $UPN | select ObjectID ##This may not be necessary because the scope was the problem.
 set-msoluser -UserPrincipalName $user.userprincipalname -BlockCredential $true
 
 }

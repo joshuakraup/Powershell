@@ -20,6 +20,8 @@ $global:FirstName = Read-Host "Enter the First Name"
 $global:LastName = Read-Host "Enter the Last Name"
 $global:FourDigits = Read-Host "Last Four of the User"
 $global:Division = Read-Host "Enter the Department of the User(Required!)"
+$global:LANAccessGrp = Read-Host "Do you want the user in the LAN-Access Group (y/n)"
+$global:CanvasGrp = Read-Host "Do you want the user in the Canvas SSO Group (y/n)"
 $global:Manager = Read-Host "Who is the User's Manager(not required. Can leave blank)"
 $global:EmployeeNumber = Read-Host "What is the employee number of the user(not required. Can leave blank)"
 $global:MobilePhone = Read-Host "What is the mobile phone number(not required. Can leave blank)"
@@ -28,8 +30,7 @@ $global:UserEmail = "$FirstName.$LastName@nacgroup.com"
 
 # Combine the variables as needed and add info where needed to complete the formatting (edited for clarity)
 $UserName = "$FirstName.$LastName"
-$UserTemplate = Get-ADUser -Identity "$Division.Template"
-$ManagerCN = Get-ADUser -Identity $UserTemplate -Properties Manager
+$ManagerCN = Get-ADUser | ? ($_.userprincipalname -like $Manager)
 $ProfilePath = ($UserTemplate.DistinguishedName -split ",",2)[1]
 
 # Initial user account creation.
@@ -44,7 +45,17 @@ Set-ADUser -Identity $UserName -GivenName $FirstName
 Set-ADUser -Identity $UserName -Manager $ManagerCN
 Set-ADUser -Identity $UserName -Surname $LastName
 Set-ADUser -Identity $UserName -UserPrincipalName "$FirstName.$LastName@nacgroup.com"
-Set-ADUser -Identity $UserName -EmployeeID "1"
+
+    switch($LANAccessGrp,$canvasGrp)
+        {
+            ($LANAccessGrp -eq 'y' -or 'Y') {$LANAccessSetting = 1}
+            ($LANAccessGrp -eq 'n' -or 'N') {$LANAccessSetting = 0}
+            ($CanvasGrp -eq 'y' -or 'Y') {$CanvasSetting = 1}
+            ($CanvasGrp -eq 'n' -or 'N') {$CanvasSetting = 0}
+        }
+
+$UserValue = 1 + $LANAccessSetting + $CanvasSetting   
+Set-ADUser -Identity $UserName -EmployeeID "$UserValue"
 
 # Move to correct OU.
 Get-ADUser -Identity $UserName | Move-ADObject -TargetPath $ProfilePath

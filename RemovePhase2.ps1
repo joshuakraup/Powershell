@@ -27,8 +27,6 @@ Connect-SPOService -Url https://nacgroup-admin.sharepoint.com -Credential $Tenan
 $session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $msoExchangeURL -Credential $TenantCredentials -Authentication Basic -AllowRedirection
 Import-PSSession $session -ErrorAction SilentlyContinue
 
-Write-Host "Connected..."
-
 }
 
 
