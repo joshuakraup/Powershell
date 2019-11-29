@@ -5,7 +5,7 @@ Write-Host "Connect to 365. You'll provide your credentials twice"
 # Pull credentials before moving to Office 365.
 $TenantUname = “SVC_SCRIPTS@nacgroup.com”
 $TenantPass = cat “C:\Scripts\Exchange_Online\Password.txt” | ConvertTo-SecureString -AsPlainText -Force
-$TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
+$Global:TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
 $msoExchangeURL = “https://ps.outlook.com/powershell/”                                              
 
 #Connect to cloud services
@@ -38,6 +38,7 @@ Function Disable-MailLogon {
 #$ObjectID = get-msoluser -UserPrincipalName $UPN | select ObjectID ##This may not be necessary because the scope was the problem.
 set-msoluser -UserPrincipalName $user.userprincipalname -BlockCredential $true
 
+
 }
 
 Function Set-UserPass(){
@@ -53,16 +54,36 @@ The excel spreadsheet must include
 #>
 #[string]$Manager = Get-ADUser -identity $Username | select Manager
 Set-ADAccountPassword -Identity $User.DistinguishedName -NewPassword (ConvertTo-SecureString -AsPlainText $TempPass -Force) -Reset 
+
+$userManagerEmail = get-aduser -filter * | Where-Object { $_.DisplayName -like "$user.manager" } | select WindowsEmailAddress
+$smtpCred = $tenantcredentials 
+$toAddress = "$userManagerEmail"
+$fromAddress = "svc_scripts@nacgroup.com"
+$smtpServer = 'smtp.office365.com'
+$smtpPort = '587'
+$bodyAndSubject = $User.DisplayName
+
+    $mailparam = @{
+        To = $toAddress
+        From = $fromAddress
+        Subject = 'User Account Removal Alert'
+        Body = "The user $bodyAndSubject is being tagged for removal. As a result, the password has been changed. As the manager, the current password is sent to you. Current Pass: $TempPass"
+        SmtpServer = $smtpServer
+        Port = $smtpPort
+        Credential = $smtpCred
+    }
+
+
 }
 
 Function Set-UserProperty {
 
-Set-ADUser -Identity $user.distinguishedname -EmployeeID "4"
+Set-ADUser -Identity $user.distinguishedname -EmployeeID "6"
 
 }
 
 
-$UserstobeRemoved = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "3"}
+$UserstobeRemoved = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "5"}
 
 foreach($user in $UserstobeRemoved){
 Connect-Office365

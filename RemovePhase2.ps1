@@ -32,7 +32,7 @@ Import-PSSession $session -ErrorAction SilentlyContinue
 
 function Hold-Mailbox { 
 
-$RemovalOfUsers = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "4"}
+$RemovalOfUsers = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "6"}
 
     foreach($user in $RemovalOfUsers){
 
