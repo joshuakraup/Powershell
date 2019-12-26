@@ -5,7 +5,7 @@ Write-Host "Connect to 365. You'll provide your credentials twice"
 # Pull credentials before moving to Office 365.
 $TenantUname = “SVC_SCRIPTS@nacgroup.com”
 $TenantPass = cat “C:\Scripts\Exchange_Online\Password.txt” | ConvertTo-SecureString -AsPlainText -Force
-$Global:TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
+$Script:TenantCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $TenantUname, $TenantPass
 $msoExchangeURL = “https://ps.outlook.com/powershell/”                                              
 
 #Connect to cloud services
@@ -28,7 +28,7 @@ $ascii=$NULL;For ($a=33;$a –le 126;$a++) {$ascii+=,[char][byte]$a }
 
 For ($loop = 1; $loop -le $length; $loop++){
 
-    $Global:TempPass += ($ascii | Get-Random)
+    $Script:TempPass += ($ascii | Get-Random)
 
     }
 }
@@ -57,22 +57,19 @@ Set-ADAccountPassword -Identity $User.DistinguishedName -NewPassword (ConvertTo-
 
 $userManagerEmail = get-aduser -filter * | Where-Object { $_.DisplayName -like "$user.manager" } | select WindowsEmailAddress
 $smtpCred = $tenantcredentials 
-$toAddress = "$userManagerEmail"
+$toAddress = $userManagerEmail
 $fromAddress = "svc_scripts@nacgroup.com"
 $smtpServer = 'smtp.office365.com'
-$smtpPort = '587'
 $bodyAndSubject = $User.DisplayName
 
-    $mailparam = @{
-        To = $toAddress
-        From = $fromAddress
-        Subject = 'User Account Removal Alert'
-        Body = "The user $bodyAndSubject is being tagged for removal. As a result, the password has been changed. As the manager, the current password is sent to you. Current Pass: $TempPass"
-        SmtpServer = $smtpServer
-        Port = $smtpPort
-        Credential = $smtpCred
-    }
-
+Send-MailMessage `
+-From $fromAddress `
+-To $toAddress `
+-Subject 'User Account Removal' `
+-Body "The user $bodyAndSubject is being tagged for removal. As a result, the password has been changed. As the manager, the current password is sent to you. Current Pass: $TempPass" `
+-SmtpServer $smtpServer `
+-Credential $smtpCred  `
+-UseSsl
 
 }
 

@@ -44,6 +44,48 @@ $RemovalOfUsers = get-aduser -filter * -properties * | ? {$_.EmployeeID -eq "6"}
     New-MailboxSearch -Name "$user.userprincipalname Archive" -SourceMailboxes $user.userprincipalname -InPlaceHoldEnabled $true
     set-aduser $user.userprincipalname -EmployeeID "5"
     #as of yet i don't have a good way to capture their entire onedrive. The cmdlets for sharepoint are lacking. Either way I can't export it. However by default the manager of the user get's access following deletion of the user.
+    
+    $mySiteDomain = "nacgroup"
+    $names = $user.DisplayName
+    $holdname = "Offboarding $names"
+    $casename = "Offboarding $names Case"
+
+    $AdminUrl = "https://$mySiteDomain-admin.sharepoint.com"
+    $mySiteUrlRoot = "https://$mySiteDomain-my.sharepoint.com"
+    # Add the path of the User Profile Service to the SPO admin URL, then create a new webservice proxy to access it
+    $proxyaddr = "$AdminUrl/_vti_bin/UserProfileService.asmx?wsdl"
+    $UserProfileService= New-WebServiceProxy -Uri $proxyaddr -UseDefaultCredential False
+    $UserProfileService.Credentials = $credentials
+    # Take care of auth cookies
+    $strAuthCookie = $spCreds.GetAuthenticationCookie($AdminUrl)
+    $uri = New-Object System.Uri($AdminUrl)
+    $container = New-Object System.Net.CookieContainer
+    $container.SetCookies($uri, $strAuthCookie)
+    $UserProfileService.CookieContainer = $container
+    $urls = @()
+    
+    try{
+        $prop = $UserProfileService.GetUserProfileByName("i:0#.f|membership|$emailAddress") | Where-Object { $_.Name -eq "PersonalSpace" }
+        $url = $prop.values[0].value
+  	if($url -ne $null){
+        $furl = $mySiteUrlRoot + $url
+        $urls += $furl
+        Write-Host "- $emailAddress => $furl"
+  	[array]$ODadded += $furl}
+    else{    
+        Write-Warning "Couldn't locate OneDrive for $emailAddress"
+  	[array]$ODExluded += $emailAddress
+    }}
+    catch { 
+    Write-Warning "Could not locate OneDrive for $emailAddress"
+    [array]$ODExluded += $emailAddress
+    Continue }
+
+    New-CaseHoldPolicy -Name "$holdName" -Case "$casename" -ExchangeLocation $finallist -SharePointLocation $urls -Enabled $True | out-null
+    New-CaseHoldRule -Name "$holdName" -Policy "$holdname" -ContentMatchQuery $holdQuery | out-null
+
+    $newhold=Get-CaseHoldPolicy -Identity "$holdname" -Case "$casename" -erroraction SilentlyContinue
+    $newholdrule=Get-CaseHoldRule -Identity "$holdName" -erroraction SilentlyContinue
     }
 }
 
