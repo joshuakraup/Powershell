@@ -55,7 +55,7 @@ The excel spreadsheet must include
 #[string]$Manager = Get-ADUser -identity $Username | select Manager
 Set-ADAccountPassword -Identity $User.DistinguishedName -NewPassword (ConvertTo-SecureString -AsPlainText $TempPass -Force) -Reset 
 
-$userManagerEmail = get-aduser -filter * | Where-Object { $_.DisplayName -like "$user.manager" } | select WindowsEmailAddress
+$userManagerEmail = get-aduser $user.manager -Properties mail | select mail
 $smtpCred = $tenantcredentials 
 $toAddress = $userManagerEmail
 $fromAddress = "svc_scripts@nacgroup.com"
