@@ -19,7 +19,16 @@ function Create-LocalUser ([string]$UserEmail) {
 $global:FirstName = Read-Host "Enter the First Name"
 $global:LastName = Read-Host "Enter the Last Name"
 $global:FourDigits = Read-Host "Last Four of the User"
-$global:Division = Read-Host "Enter the Department of the User(Required!)"
+#$global:Division = Read-Host "Enter the Department of the User(Required!)" Removed to get this information in a new way. 
+
+#First we need to establish the variable that will take user input
+Write-Host "Please select from the following departments"
+Write-Host "(1) Sales"
+Write-Host "(2) Service"
+Write-Host "(3) Other"
+Write-Host "(4) None: Note This will put the user into the users OU"
+$global:GroupSelection = Read-Host "Enter Desired Selection Number:"
+
 $global:LANAccessGrp = Read-Host "Do you want the user in the LAN-Access Group (y/n)"
 $global:CanvasGrp = Read-Host "Do you want the user in the Canvas SSO Group (y/n)"
 $global:Manager = Read-Host "Who is the User's Manager(not required. Can leave blank)"
@@ -29,9 +38,12 @@ $global:Description = Read-Host "Enter the Job Title of the user (not required. 
 $global:UserEmail = "$FirstName.$LastName@nacgroup.com"
 
 # Combine the variables as needed and add info where needed to complete the formatting (edited for clarity)
+<#
 $UserName = "$FirstName.$LastName"
 $ManagerCN = Get-ADUser | ? ($_.userprincipalname -like $Manager)
 $ProfilePath = ($UserTemplate.DistinguishedName -split ",",2)[1]
+#>
+
 
 # Initial user account creation.
 Write-Host "Creating User and setting information."
