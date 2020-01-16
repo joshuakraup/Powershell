@@ -23,12 +23,12 @@ $global:FourDigits = Read-Host "Last Four of the User"
 
 Write-Host "Select the number of the department you'd like to add the user to. Hit 0 if you do not want the user in a department."
 
-    foreach($departments in $departments.name){
+    foreach($departments in $alldepartments.name){
     
     Write-Host "$increment $departments"
     $increment ++
     }
-
+$increment = $null
 $global:DivisionSelection = Read-Host "Enter the number of the department you want the user to join"
 $global:DivisionTranslation = $alldepartments[$DivisionSelection]
 
