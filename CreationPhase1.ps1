@@ -16,12 +16,22 @@ function Create-LocalUser ([string]$UserEmail) {
 #Retrieve Input from the User
 ### Must figure out a more efficient way to ask the questions and get the answers if possible. This is just kind of ridiculous. Maybe a "do you want to enter optional info if statement ###
 $alldepartments = get-adobject -SearchBase 'OU=Users,OU=MyBusiness,DC=nac,DC=local' -SearchScope OneLevel -Filter 'ObjectClass -eq "organizationalunit"'
-
+$increment = 1
 $global:FirstName = Read-Host "Enter the First Name"
 $global:LastName = Read-Host "Enter the Last Name"
 $global:FourDigits = Read-Host "Last Four of the User"
-$global:Division = Read-Host "Enter the Department of the User(Required)"
-Write-Host $alldepartments.name
+
+Write-Host "Select the number of the department you'd like to add the user to. Hit 0 if you do not want the user in a department."
+
+    foreach($departments in $departments.name){
+    
+    Write-Host "$increment $departments"
+    $increment ++
+    }
+
+$global:DivisionSelection = Read-Host "Enter the number of the department you want the user to join"
+$global:DivisionTranslation = $alldepartments[$DivisionSelection]
+
 $global:LANAccessGrp = Read-Host "Do you want the user in the LAN-Access Group (y/n)"
 $global:CanvasGrp = Read-Host "Do you want the user in the Canvas SSO Group (y/n)"
 $global:Manager = Read-Host "Who is the User's Manager(not required. Can leave blank)"
@@ -33,7 +43,7 @@ $global:UserEmail = "$FirstName.$LastName@nacgroup.com"
 # Combine the variables as needed and add info where needed to complete the formatting (edited for clarity)
 $UserName = "$FirstName.$LastName"
 $ManagerCN = Get-ADUser -filter * | ? ($_.userprincipalname -like $Manager)
-$ProfilePath = ($UserTemplate.DistinguishedName -split ",",2)[1]
+
 
 # Initial user account creation.
 Write-Host "Creating User and setting information."
