@@ -48,6 +48,7 @@ $ManagerCN = Get-ADUser -filter * | ? ($_.userprincipalname -like $Manager)
 # Initial user account creation.
 Write-Host "Creating User and setting information."
 New-ADUser -SamAccountName $UserName -Name "$FirstName $LastName"
+Move-ADObject -Identity $UserName -TargetPath $DivisionTranslation
 
 # Set user properties: Description, DisplayName, EmailAddress, EmployeeNumber, GivenName, Manager, MobilePhone, Surname, UserPrincipalName.
 Set-ADUser -Identity $Username -Description "$Description"
@@ -70,7 +71,7 @@ $UserValue = 1 + $LANAccessSetting + $CanvasSetting
 Set-ADUser -Identity $UserName -EmployeeID "$UserValue"
 
 # Move to correct OU.
-Get-ADUser -Identity $UserName | Move-ADObject -TargetPath $ProfilePath
+Get-ADUser -Identity $UserName | Move-ADObject -TargetPath $DivisionTranslation.DistinguishedName
 
 # Set proxy address(es).
 Write-Host "Setting Proxy Addresses"
